@@ -1,6 +1,7 @@
 import { Client, Issuer, TokenSet, TokenSetParameters, custom } from 'openid-client';
 import * as xero from './gen/api';
-import request = require('request');
+// import request = require('request');
+import got from 'got';
 import http = require('http');
 
 export { TokenSet, TokenSetParameters } from 'openid-client';
@@ -203,27 +204,49 @@ export class XeroClient {
   }
 
   private async tokenRequest(clientId, clientSecret, body): Promise<{ response: http.IncomingMessage; body: string }> {
-    return new Promise<{ response: http.IncomingMessage; body: string }>((resolve, reject) => {
-      request({
+    try {
+      const response = await got({
+        url: 'https://identity.xero.com/connect/token',
         method: 'POST',
-        uri: 'https://identity.xero.com/connect/token',
         headers: {
           authorization: "Basic " + Buffer.from(clientId + ":" + clientSecret).toString('base64'),
           'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: this.encodeBody(body)
-      }, (error, response, body) => {
-        if (error) {
-          reject(error);
-        } else {
-          if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
-            resolve({ response: response, body: body });
-          } else {
-            reject({ response: response, body: body });
-          }
-        }
-      });
-    });
+      })
+
+      if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+        return Promise.resolve({ response: response, body: body });
+      } else {
+        return Promise.reject({ response: response, body: body })
+      }
+    } catch (error) {
+      return Promise.reject(error);
+    }
+
+
+    // return new Promise<{ response: http.IncomingMessage; body: string }>((resolve, reject) => {
+      
+      // request({
+      //   method: 'POST',
+      //   uri: 'https://identity.xero.com/connect/token',
+      //   headers: {
+      //     authorization: "Basic " + Buffer.from(clientId + ":" + clientSecret).toString('base64'),
+      //     'Content-Type': 'application/x-www-form-urlencoded'
+      //   },
+      //   body: this.encodeBody(body)
+      // }, (error, response, body) => {
+      //   if (error) {
+      //     reject(error);
+      //   } else {
+      //     if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+      //       resolve({ response: response, body: body });
+      //     } else {
+      //       reject({ response: response, body: body });
+      //     }
+      //   }
+      // });
+    // });
   }
 
   public async updateTenants(fullOrgDetails: boolean = true): Promise<any[]> {
@@ -248,26 +271,46 @@ export class XeroClient {
   }
 
   private async queryApi(method, uri): Promise<{ response: http.IncomingMessage; body: Array<{ id: string, tenantId: string, tenantName: string, tenantType: string, orgData: any }> }> {
-    return new Promise<{ response: http.IncomingMessage; body: Array<{ id: string, tenantId: string, tenantName: string, tenantType: string, orgData: any }> }>((resolve, reject) => {
-      request({
-        method,
-        uri,
-        auth: {
-          bearer: this._tokenSet.access_token
-        },
-        json: true
-      }, (error, response, body) => {
-        if (error) {
-          reject(error);
-        } else {
-          if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
-            resolve({ response: response, body: body });
-          } else {
-            reject({ response: response, body: body });
-          }
+    try {
+      const response = await got({
+        url: uri,
+        method: method,
+        headers: {
+          authorization: "Bearer " + this._tokenSet.access_token,
         }
-      });
-    });
+      })
+
+      const body = JSON.parse(response.body);
+
+      if(response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+        return Promise.resolve({response: response, body: body });
+      } else {
+        return Promise.reject({response: response, body: body });
+      }
+    } catch (error) {
+      return Promise.reject(error);
+    }
+
+    // return new Promise<{ response: http.IncomingMessage; body: Array<{ id: string, tenantId: string, tenantName: string, tenantType: string, orgData: any }> }>((resolve, reject) => {
+      // request({
+      //   method,
+      //   uri,
+      //   auth: {
+      //     bearer: this._tokenSet.access_token
+      //   },
+      //   json: true
+      // }, (error, response, body) => {
+      //   if (error) {
+      //     reject(error);
+      //   } else {
+      //     if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+      //       resolve({ response: response, body: body });
+      //     } else {
+      //       reject({ response: response, body: body });
+      //     }
+      //   }
+      // });
+    // });
   }
 
   private setAccessToken(): void {
